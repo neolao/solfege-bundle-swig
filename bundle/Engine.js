@@ -35,6 +35,7 @@ proto.configuration;
  * Set the application
  *
  * @param   {solfege.kernel.Application}    application     Application instance
+ * @api     public
  */
 proto.setApplication = function*(application)
 {
@@ -49,7 +50,7 @@ proto.setApplication = function*(application)
  * Override the current configuration
  *
  * @param   {Object}    customConfiguration     The custom configuration
- * @api public
+ * @api     public
  */
 proto.overrideConfiguration = function*(customConfiguration)
 {
@@ -63,45 +64,64 @@ proto.overrideConfiguration = function*(customConfiguration)
  */
 proto.parseConfiguration = function()
 {
-    // Parse the locals
-    var locals = {};
-    for (var localKey in this.configuration.locals) {
-        var localValue = this.configuration.locals[localKey];
-        var computedValue = null;
-
-        // If the value is a string, try to parse it as a Solfege URI
-        if (typeof localValue === 'string') {
-            try {
-                computedValue = this.application.parseSolfegeUri(localValue, this);
-            } catch (error) {
-                computedValue = null;
-            }
-            if (computedValue === null) {
-                computedValue = localValue;
-            }
-        } else {
-            computedValue = localValue;
-        }
-
-        // Set the computed value
-        locals[localKey] = computedValue;
-    }
-
-
     // Update the configuration
     swig.setDefaults({
         autoescape: this.configuration.autoescape,
         varControls: this.configuration.varControls,
         tagControls: this.configuration.tagControls,
         cmtControls: this.configuration.cmtControls,
-        locals: locals,
+        locals: this.parseVariables(this.configuration.locals),
         cache: (this.configuration.cache)?'memory':false,
         loader: swig.loaders.fs(this.configuration.path)
     });
 };
 
 /**
+ * Parse the variables
+ *
+ * @param   {Object}    variables   The variables
+ * @return  {Object}                The parsed variables
+ * @api     private
+ */
+proto.parseVariables = function(variables)
+{
+    var parsedVariables = {};
+
+    // If the variables is not an object, then return an empty parsed variables
+    if (typeof variables !== 'object') {
+        return parsedVariables;
+    }
+
+    // Check each variables
+    for (var key in variables) {
+        var value = variables[key];
+        var computedValue = null;
+
+        // If the value is a string, try to parse it as a Solfege URI
+        if (typeof value === 'string') {
+            try {
+                computedValue = this.application.parseSolfegeUri(value, this);
+            } catch (error) {
+                computedValue = null;
+            }
+            if (computedValue === null) {
+                computedValue = value;
+            }
+        } else {
+            computedValue = value;
+        }
+
+        // Set the computed value
+        parsedVariables[key] = computedValue;
+    }
+
+    return parsedVariables;
+};
+
+/**
  * Executed when the bundles of the application are initialized
+ *
+ * @api private
  */
 proto.onBundlesInitialized = function*()
 {
@@ -116,9 +136,12 @@ proto.onBundlesInitialized = function*()
  * @param   {String}    path        The file path
  * @param   {Object}    parameters  The parameters
  * @return  {String}                The result
+ * @api     public
  */
 proto.render = function*(path, parameters)
 {
+    parameters = this.parseVariables(parameters);
+
     var output = yield function(done) {
         swig.renderFile(path, parameters, function(error, result) {
             // An error occurred
@@ -140,6 +163,7 @@ proto.render = function*(path, parameters)
  * @param   {solfege.bundle.server.Request}     request     The request
  * @param   {solfege.bundle.server.Response}    response    The response
  * @param   {GeneratorFunction}                 next        The next function
+ * @api     public
  */
 proto.middleware = function*(request, response, next)
 {
