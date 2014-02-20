@@ -1,0 +1,1 @@
+<p>{{ moo('mutation') }}</p>

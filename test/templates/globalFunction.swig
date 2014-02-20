@@ -1,0 +1,1 @@
+<p>{{ trans('mutation') }}</p>
