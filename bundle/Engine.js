@@ -11,11 +11,17 @@ var Engine = solfege.util.Class.create(function()
     // Set the default configuration
     this.configuration = require('../configuration/default.js');
 
-    // Parse the configuration
-    this.parseConfiguration();
-
 }, 'solfege.bundle.swig.Engine');
 var proto = Engine.prototype;
+
+
+/**
+ * The application instance
+ *
+ * @type {solfege.kernel.Application}
+ * @api private
+ */
+proto.application;
 
 /**
  * The configuration
@@ -26,6 +32,20 @@ var proto = Engine.prototype;
 proto.configuration;
 
 /**
+ * Set the application
+ *
+ * @param   {solfege.kernel.Application}    application     Application instance
+ */
+proto.setApplication = function*(application)
+{
+    this.application = application;
+
+    // Set listeners
+    var bindGenerator = solfege.util.Function.bindGenerator;
+    this.application.on(solfege.kernel.Application.EVENT_BUNDLES_INITIALIZED, bindGenerator(this, this.onBundlesInitialized));
+};
+
+/**
  * Override the current configuration
  *
  * @param   {Object}    customConfiguration     The custom configuration
@@ -34,9 +54,6 @@ proto.configuration;
 proto.overrideConfiguration = function*(customConfiguration)
 {
     this.configuration = solfege.util.Object.merge(this.configuration, customConfiguration);
-
-    // Parse the configuration
-    this.parseConfiguration();
 };
 
 /**
@@ -46,16 +63,52 @@ proto.overrideConfiguration = function*(customConfiguration)
  */
 proto.parseConfiguration = function()
 {
+    // Parse the locals
+    var locals = {};
+    for (var localKey in this.configuration.locals) {
+        var localValue = this.configuration.locals[localKey];
+        var computedValue = null;
+
+        // If the value is a string, try to parse it as a Solfege URI
+        if (typeof localValue === 'string') {
+            try {
+                computedValue = this.application.parseSolfegeUri(localValue, this);
+            } catch (error) {
+                computedValue = null;
+            }
+            if (computedValue === null) {
+                computedValue = localValue;
+            }
+        } else {
+            computedValue = localValue;
+        }
+
+        // Set the computed value
+        locals[localKey] = computedValue;
+    }
+
+
+    // Update the configuration
     swig.setDefaults({
         autoescape: this.configuration.autoescape,
         varControls: this.configuration.varControls,
         tagControls: this.configuration.tagControls,
         cmtControls: this.configuration.cmtControls,
-        locals: this.configuration.locals,
+        locals: locals,
         cache: (this.configuration.cache)?'memory':false,
         loader: swig.loaders.fs(this.configuration.path)
     });
 };
+
+/**
+ * Executed when the bundles of the application are initialized
+ */
+proto.onBundlesInitialized = function*()
+{
+    // Parse the configuration
+    this.parseConfiguration();
+};
+
 
 /**
  * Render a file
