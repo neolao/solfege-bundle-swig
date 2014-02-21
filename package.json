@@ -23,7 +23,7 @@
     },
     "scripts"       :
     {
-        "test"          : "make test"
+        "test"          : "mocha --harmony --recursive --reporter spec --bail"
     }
 
 }
