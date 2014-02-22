@@ -100,7 +100,7 @@ proto.parseVariables = function(variables)
         // If the value is a string, try to parse it as a Solfege URI
         if (typeof value === 'string') {
             try {
-                computedValue = this.application.parseSolfegeUri(value, this);
+                computedValue = this.application.resolveSolfegeUri(value, this);
             } catch (error) {
                 computedValue = null;
             }
